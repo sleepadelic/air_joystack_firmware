@@ -2,6 +2,8 @@
 #include "pinout.h"
 #include <Joystick_ESP32S2.h>
 #include <EncButton.h>
+#include <GyverHC595.h>
+
 
 // Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,
 //                    JOYSTICK_TYPE_MULTI_AXIS, 32, 0,
@@ -15,16 +17,11 @@ EncButton enc_1 = EncButton(E12_PIN, E11_PIN, E1B_PIN, INPUT_PULLUP);
 Encoder enc_2 = Encoder(E21_PIN, E22_PIN, INPUT_PULLUP);
 Encoder enc_3 = Encoder(E31_PIN, E32_PIN, INPUT_PULLUP);
 
+GyverHC595<1, HC_PINS> led_reg(latchPin, dataPin, clockPin);
+
+
 void setup()
 {
-    // pinMode(E02_PIN, INPUT_PULLUP);
-    // pinMode(E01_PIN, INPUT_PULLUP);
-    // pinMode(E0B_PIN, INPUT_PULLUP);
-    // pinMode(LED_BUILTIN, OUTPUT);
-    // pinMode(latchPin, OUTPUT);
-    // pinMode(clockPin, OUTPUT);
-    // pinMode(dataPin, OUTPUT);
-    // ставим HIGH на "защёлку", чтобы регистр не принимал сигнал
     pinMode(R1_PIN, INPUT);
     pinMode(R2_PIN, INPUT);
     pinMode(R3_PIN, INPUT);
@@ -32,10 +29,13 @@ void setup()
     pinMode(R5_PIN, INPUT);
     pinMode(R6_PIN, INPUT);
 
-    // enc_0.setEncType(EB_STEP1);
     enc_2.setEncType(EB_STEP2);
     enc_3.setEncType(EB_STEP2);
-    digitalWrite(latchPin, HIGH);
+    led_reg.setAll();
+    led_reg.update(); 
+    delay(800);
+    led_reg.clearAll();
+    led_reg.update(); 
 }
 int value = 0;
 byte byteToSend = 0;
@@ -51,22 +51,28 @@ void loop()
 
     if (button_1.press())
     {
+        led_reg.write(2,1);
         Serial.println("b1_press");
     }
     if (button_1.release())
     {
+        led_reg.write(2,0);
         Serial.println("b1_release");
     }
     if (button_2.press())
-    {
+    {   
+        // led_reg.set(1);
+        led_reg.write(3,1);
         Serial.println("b2_press");
     }
     if (button_2.release())
     {
+        led_reg.write(3,0);
         Serial.println("b2_release");
     }
     if (button_3.press())
     {
+        // led_reg.set(2);
         Serial.println("b3_press");
     }
     if (button_3.release())
@@ -74,11 +80,13 @@ void loop()
         Serial.println("b3_release");
     }
     if (enc_0.press())
-    {
+    {   
+        led_reg.set(0);
         Serial.println("e0_press");
     }
     if (enc_0.release())
     {
+        led_reg.clear(0);
         Serial.println("e0_release");
     }
     if (enc_0.turn())
@@ -134,4 +142,6 @@ void loop()
     //       digitalWrite(latchPin, HIGH);                                       // ставим HIGH на "защёлку"
     //       delay(100);
     //    }
+
+    led_reg.update(); 
 }
