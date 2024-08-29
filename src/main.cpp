@@ -4,6 +4,14 @@
 #include <EncButton.h>
 #include <GyverHC595.h>
 
+#define debugToSerial true // Send debug into Serial
+
+#ifdef debugToSerial
+#define debugPrint(x) Serial.println(x)
+#else
+#define debugPrint(x)
+#endif
+
 // Init
 Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,
                    JOYSTICK_TYPE_MULTI_AXIS, 15, 0,
@@ -19,16 +27,39 @@ Encoder enc_3 = Encoder(E31_PIN, E32_PIN, INPUT_PULLUP);
 
 GyverHC595<1, HC_PINS> led_reg(latchPin, dataPin, clockPin);
 
+IRAM_ATTR void isr_enc0()
+{
+    enc_0.tickISR();
+}
+
+IRAM_ATTR void isr_enc1()
+{
+    enc_1.tickISR();
+}
+
+IRAM_ATTR void isr_enc2()
+{
+    enc_2.tickISR();
+}
+
+IRAM_ATTR void isr_enc3()
+{
+    enc_3.tickISR();
+}
+
 void setup()
 {
+    debugPrint("Initialisation Started...");
+
     // Joystick settings
-    Joystick.begin();
-    Joystick.setXAxisRange(0, 600);
-    Joystick.setRxAxisRange(0, 600);
+    Joystick.begin(false);
+    Joystick.setXAxisRange(0, 1024);
+    Joystick.setRxAxisRange(0, 1024);
     Joystick.setYAxisRange(0, 600);
     Joystick.setRyAxisRange(0, 600);
     Joystick.setZAxisRange(0, 600);
     Joystick.setRzAxisRange(0, 600);
+
     // Set potentiometers modes
     pinMode(R1_PIN, INPUT);
     pinMode(R2_PIN, INPUT);
@@ -41,129 +72,37 @@ void setup()
     enc_2.setEncType(EB_STEP2);
     enc_3.setEncType(EB_STEP2);
 
-    // led test (init OK)
+    // led test (init OK)s
     led_reg.setAll();
     led_reg.update();
-    delay(800);
+    delay(1000);
     led_reg.clearAll();
     led_reg.update();
+
+    attachInterrupt(E02_PIN, isr_enc0, CHANGE);
+    attachInterrupt(E01_PIN, isr_enc0, CHANGE);
+    enc_0.setEncISR(true);
+
+    attachInterrupt(E12_PIN, isr_enc1, CHANGE);
+    attachInterrupt(E11_PIN, isr_enc1, CHANGE);
+    enc_1.setEncISR(true);
+
+    attachInterrupt(E22_PIN, isr_enc2, CHANGE);
+    attachInterrupt(E21_PIN, isr_enc2, CHANGE);
+    enc_2.setEncISR(true);
+
+    attachInterrupt(E32_PIN, isr_enc3, CHANGE);
+    attachInterrupt(E31_PIN, isr_enc3, CHANGE);
+    enc_3.setEncISR(true);
+
+    debugPrint("Initialisation complete!\n");
 }
 int value = 0;
 byte byteToSend = 0;
-void loop()
+
+void readAxies()
 {
-    // Buttons and enc read
-    button_1.tick();
-    button_2.tick();
-    button_3.tick();
-    enc_0.tick();
-    enc_1.tick();
-    enc_2.tick();
-    enc_3.tick();
-
-    if (button_1.press())
-    {
-        Serial.println("b1_press");
-        Joystick.setButton(0, 1);
-    }
-    if (button_1.release())
-    {
-        Joystick.setButton(0, 0);
-        Serial.println("b1_release");
-    }
-    if (button_2.press())
-    {
-        Joystick.setButton(1, 1);
-        Serial.println("b2_press");
-    }
-    if (button_2.release())
-    {
-        Joystick.setButton(1, 0);
-        Serial.println("b2_release");
-    }
-    if (button_3.press())
-    {
-        Joystick.setButton(2, 1);
-        Serial.println("b3_press");
-    }
-    if (button_3.release())
-    {
-        Joystick.setButton(2, 0);
-        Serial.println("b3_release");
-    }
-    if (enc_0.press())
-    {
-        led_reg.set(0);
-        Serial.println("e0_press");
-    }
-    if (enc_0.release())
-    {
-        led_reg.clear(0);
-        Serial.println("e0_release");
-    }
-    if (enc_0.turn())
-    {
-        Serial.println("e0 turn");
-        Serial.println(enc_0.dir());
-    }
-
-    if (enc_1.press())
-    {
-        led_reg.set(1);
-
-        Serial.println("e1_press");
-    }
-    if (enc_1.release())
-    {
-        led_reg.clear(1);
-        Serial.println("e1_release");
-    }
-    if (enc_1.turn())
-    {
-        Serial.println("e1 turn");
-        Serial.println(enc_1.dir());
-    }
-
-    // Enc 2,3
-    if (enc_2.turn())
-    {
-        // Serial.println("e2 turn");
-        // Serial.println(enc_2.dir());
-        if (enc_2.dir() == 1)
-        {
-            Joystick.pressButton(3);
-            Joystick.sendState();
-            Joystick.releaseButton(3);
-            Joystick.sendState();
-        }
-        else
-        {
-            Joystick.pressButton(4);
-            Joystick.sendState();
-            Joystick.releaseButton(4);
-            Joystick.sendState();
-        }
-    }
-    if (enc_3.turn())
-    {
-        // Serial.println("e3 turn");
-        // Serial.println(enc_3.dir());
-        if (enc_3.dir() == 1)
-        {
-            Joystick.pressButton(5);
-            Joystick.sendState();
-            Joystick.releaseButton(5);
-            Joystick.sendState();
-        }
-        else
-        {
-            Joystick.pressButton(6);
-            Joystick.sendState();
-            Joystick.releaseButton(6);
-            Joystick.sendState();
-        }
-    }
-    if (analogRead(R1_PIN) > 200)
+    if (analogRead(R1_PIN) > 250)
     {
         led_reg.set(7);
     }
@@ -171,7 +110,7 @@ void loop()
     {
         led_reg.clear(7);
     }
-    if (analogRead(R2_PIN) > 200)
+    if (analogRead(R2_PIN) > 250)
     {
         led_reg.set(6);
     }
@@ -179,7 +118,7 @@ void loop()
     {
         led_reg.clear(6);
     }
-    if (analogRead(R3_PIN) > 200)
+    if (analogRead(R3_PIN) > 250)
     {
         led_reg.set(5);
     }
@@ -187,7 +126,7 @@ void loop()
     {
         led_reg.clear(5);
     }
-    if (analogRead(R4_PIN) > 200)
+    if (analogRead(R4_PIN) > 250)
     {
         led_reg.set(4);
     }
@@ -195,7 +134,7 @@ void loop()
     {
         led_reg.clear(4);
     }
-    if (analogRead(R5_PIN) > 200)
+    if (analogRead(R5_PIN) > 250)
     {
         led_reg.set(3);
     }
@@ -203,20 +142,205 @@ void loop()
     {
         led_reg.clear(3);
     }
-    if (analogRead(R6_PIN) > 200)
+    if (analogRead(R6_PIN) > 250)
     {
-        Serial.println(analogRead(R6_PIN) >> 3);
         led_reg.set(2);
     }
     else
     {
         led_reg.clear(2);
     }
-    Joystick.setXAxis(analogRead(R6_PIN) >> 3);
+
+    Joystick.setXAxis(analogRead(R6_PIN) / 10);
+    debugPrint(analogRead(R6_PIN) / 10);
     Joystick.setRxAxis(analogRead(R5_PIN) >> 3);
     Joystick.setYAxis(analogRead(R4_PIN) >> 3);
     Joystick.setRyAxis(analogRead(R3_PIN) >> 3);
     Joystick.setZAxis(analogRead(R2_PIN) >> 3);
     Joystick.setRzAxis(analogRead(R1_PIN) >> 3);
     led_reg.update();
+    Joystick.sendState();
+}
+
+void readButtons()
+{
+    if (button_1.press())
+    {
+        debugPrint("b1_press");
+        Joystick.setButton(0, 1);
+    }
+    if (button_1.release())
+    {
+        Joystick.setButton(0, 0);
+        debugPrint("b1_release");
+    }
+    if (button_2.press())
+    {
+        Joystick.setButton(1, 1);
+        debugPrint("b2_press");
+    }
+    if (button_2.release())
+    {
+        Joystick.setButton(1, 0);
+        debugPrint("b2_release");
+    }
+    if (button_3.press())
+    {
+        Joystick.setButton(2, 1);
+        debugPrint("b3_press");
+    }
+    if (button_3.release())
+    {
+        Joystick.setButton(2, 0);
+        debugPrint("b3_release");
+    }
+    Joystick.sendState();
+}
+
+void readEncButtons()
+{
+    if (enc_0.press())
+    {
+        led_reg.set(0);
+        led_reg.update();
+        Joystick.setButton(3, 1);
+        debugPrint("e0_press");
+    }
+    if (enc_0.release())
+    {
+        led_reg.clear(0);
+        led_reg.update();
+        Joystick.setButton(3, 0);
+        debugPrint("e0_release");
+    }
+
+    if (enc_1.press())
+    {
+        led_reg.set(1);
+        led_reg.update();
+        Joystick.setButton(4, 1);
+        debugPrint("e1_press");
+    }
+    if (enc_1.release())
+    {
+        led_reg.clear(1);
+        led_reg.update();
+        Joystick.setButton(4, 0);
+        debugPrint("e1_release");
+    }
+
+    Joystick.sendState();
+}
+
+void readEncRotations()
+{
+    // Read enc_0
+    if (enc_0.dir() == 1 && enc_0.turn())
+    {
+        Joystick.pressButton(5);
+        Joystick.sendState();
+        vTaskDelay(pdMS_TO_TICKS(10));
+        Joystick.releaseButton(5);
+        Joystick.sendState();
+        debugPrint("e0 turn R");
+        debugPrint(enc_0.counter);
+    }
+    else if (enc_0.dir() == -1 && enc_0.turn())
+    {
+        Joystick.pressButton(6);
+        Joystick.sendState();
+        vTaskDelay(pdMS_TO_TICKS(10));
+        Joystick.releaseButton(6);
+        Joystick.sendState();
+        debugPrint("e0 turn L");
+        debugPrint(enc_0.counter);
+    }
+
+
+    // Read enc_1
+    if (enc_1.dir() == 1 && enc_1.turn())
+    {
+        Joystick.pressButton(7);
+        Joystick.sendState();
+        vTaskDelay(pdMS_TO_TICKS(10));
+        Joystick.releaseButton(7);
+        Joystick.sendState();
+        debugPrint("e1 turn R");
+        debugPrint(enc_1.counter);
+    }
+    else if (enc_1.dir() == -1 && enc_1.turn())
+    {
+        Joystick.pressButton(8);
+        Joystick.sendState();
+        vTaskDelay(pdMS_TO_TICKS(10));
+        Joystick.releaseButton(8);
+        Joystick.sendState();
+        debugPrint("e1 turn L");
+        debugPrint(enc_1.counter);
+    }
+
+
+    // Read enc_2
+    if (enc_2.dir() == 1 && enc_2.turn())
+    {
+        Joystick.pressButton(9);
+        Joystick.sendState();
+        vTaskDelay(pdMS_TO_TICKS(10));
+        Joystick.releaseButton(9);
+        Joystick.sendState();
+        debugPrint("e2 turn R");
+        debugPrint(enc_2.counter);
+    }
+    else if (enc_2.dir() == -1 && enc_2.turn())
+    {
+        Joystick.pressButton(10);
+        Joystick.sendState();
+        vTaskDelay(pdMS_TO_TICKS(10));
+        Joystick.releaseButton(10);
+        Joystick.sendState();
+        debugPrint("e2 turn L");
+        debugPrint(enc_2.counter);
+    }
+
+    // Read enc_3
+    if (enc_3.dir() == 1 && enc_3.turn())
+    {
+        Joystick.pressButton(11);
+        Joystick.sendState();
+        vTaskDelay(pdMS_TO_TICKS(10));
+        Joystick.releaseButton(11);
+        Joystick.sendState();
+        debugPrint("e3 turn R");
+        debugPrint(enc_3.counter);
+    }
+    else if (enc_3.dir() == -1 && enc_3.turn())
+    {
+        Joystick.pressButton(12);
+        Joystick.sendState();
+        vTaskDelay(pdMS_TO_TICKS(10));
+        Joystick.releaseButton(12);
+        Joystick.sendState();
+        debugPrint("e3 turn L");
+        debugPrint(enc_3.counter);
+    }
+}
+
+void tickAll()
+{
+    button_1.tick();
+    button_2.tick();
+    button_3.tick();
+    enc_0.tick();
+    enc_1.tick();
+    enc_2.tick();
+    enc_3.tick();
+}
+
+void loop()
+{
+    tickAll();
+    readAxies();
+    readButtons();
+    readEncButtons();
+    readEncRotations();
 }

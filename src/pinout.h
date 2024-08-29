@@ -5,9 +5,9 @@
 #define R5_PIN 6
 #define R6_PIN 8
 
-#define B1_PIN 9
+#define B1_PIN 12
 #define B2_PIN 11
-#define B3_PIN 12
+#define B3_PIN 9
 
 
 #define E0B_PIN 39
