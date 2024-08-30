@@ -27,3 +27,5 @@
 #define dataPin  33  // пин подключен к входу DS
 #define latchPin 37  // пин подключен к входу ST_CP
 #define clockPin 35  // пин подключен к входу SH_CP
+
+#define modeSwitchPin 15

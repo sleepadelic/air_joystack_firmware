@@ -3,8 +3,9 @@
 #include <Joystick_ESP32S2.h>
 #include <EncButton.h>
 #include <GyverHC595.h>
-
-#define debugToSerial true // Send debug into Serial
+#include <GyverFilters.h>
+#include <USBHIDKeyboard.h>
+// #define debugToSerial true // Send debug into Serial
 
 #ifdef debugToSerial
 #define debugPrint(x) Serial.println(x)
@@ -12,6 +13,14 @@
 #define debugPrint(x)
 #endif
 
+#define KeyboardPressDelayMS 5
+#define JoystickPressDelayMS 15
+
+#define KeyboardMode 0
+#define JoystickMode 1
+uint8_t outputMode = KeyboardMode;
+
+USBHIDKeyboard usbKeyboard;
 // Init
 Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,
                    JOYSTICK_TYPE_MULTI_AXIS, 15, 0,
@@ -27,6 +36,7 @@ Encoder enc_3 = Encoder(E31_PIN, E32_PIN, INPUT_PULLUP);
 
 GyverHC595<1, HC_PINS> led_reg(latchPin, dataPin, clockPin);
 
+// Encoder Interrupts
 IRAM_ATTR void isr_enc0()
 {
     enc_0.tickISR();
@@ -49,16 +59,16 @@ IRAM_ATTR void isr_enc3()
 
 void setup()
 {
+    usbKeyboard.begin();
     debugPrint("Initialisation Started...");
-
     // Joystick settings
     Joystick.begin(false);
-    Joystick.setXAxisRange(0, 1024);
-    Joystick.setRxAxisRange(0, 1024);
-    Joystick.setYAxisRange(0, 600);
-    Joystick.setRyAxisRange(0, 600);
-    Joystick.setZAxisRange(0, 600);
-    Joystick.setRzAxisRange(0, 600);
+    Joystick.setXAxisRange(0, 1200);
+    Joystick.setRxAxisRange(0, 1200);
+    Joystick.setYAxisRange(0, 1200);
+    Joystick.setRyAxisRange(0, 1200);
+    Joystick.setZAxisRange(0, 1200);
+    Joystick.setRzAxisRange(0, 1200);
 
     // Set potentiometers modes
     pinMode(R1_PIN, INPUT);
@@ -67,6 +77,9 @@ void setup()
     pinMode(R4_PIN, INPUT);
     pinMode(R5_PIN, INPUT);
     pinMode(R6_PIN, INPUT);
+    pinMode(modeSwitchPin, INPUT_PULLUP);
+
+    enc_0.setFastTimeout(255);
 
     // enc 2 and 3 have another signal types
     enc_2.setEncType(EB_STEP2);
@@ -151,13 +164,12 @@ void readAxies()
         led_reg.clear(2);
     }
 
-    Joystick.setXAxis(analogRead(R6_PIN) / 10);
-    debugPrint(analogRead(R6_PIN) / 10);
-    Joystick.setRxAxis(analogRead(R5_PIN) >> 3);
-    Joystick.setYAxis(analogRead(R4_PIN) >> 3);
-    Joystick.setRyAxis(analogRead(R3_PIN) >> 3);
-    Joystick.setZAxis(analogRead(R2_PIN) >> 3);
-    Joystick.setRzAxis(analogRead(R1_PIN) >> 3);
+    Joystick.setXAxis(analogRead(R6_PIN) >> 2);
+    Joystick.setRxAxis(analogRead(R5_PIN) >> 2);
+    Joystick.setYAxis(analogRead(R4_PIN) >> 2);
+    Joystick.setRyAxis(analogRead(R3_PIN) >> 2);
+    Joystick.setZAxis(analogRead(R2_PIN) >> 2);
+    Joystick.setRzAxis(analogRead(R1_PIN) >> 2);
     led_reg.update();
     Joystick.sendState();
 }
@@ -239,7 +251,7 @@ void readEncRotations()
     {
         Joystick.pressButton(5);
         Joystick.sendState();
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(JoystickPressDelayMS));
         Joystick.releaseButton(5);
         Joystick.sendState();
         debugPrint("e0 turn R");
@@ -249,20 +261,19 @@ void readEncRotations()
     {
         Joystick.pressButton(6);
         Joystick.sendState();
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(JoystickPressDelayMS));
         Joystick.releaseButton(6);
         Joystick.sendState();
         debugPrint("e0 turn L");
         debugPrint(enc_0.counter);
     }
 
-
     // Read enc_1
     if (enc_1.dir() == 1 && enc_1.turn())
     {
         Joystick.pressButton(7);
         Joystick.sendState();
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(JoystickPressDelayMS));
         Joystick.releaseButton(7);
         Joystick.sendState();
         debugPrint("e1 turn R");
@@ -272,20 +283,19 @@ void readEncRotations()
     {
         Joystick.pressButton(8);
         Joystick.sendState();
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(JoystickPressDelayMS));
         Joystick.releaseButton(8);
         Joystick.sendState();
         debugPrint("e1 turn L");
         debugPrint(enc_1.counter);
     }
 
-
     // Read enc_2
     if (enc_2.dir() == 1 && enc_2.turn())
     {
         Joystick.pressButton(9);
         Joystick.sendState();
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(JoystickPressDelayMS));
         Joystick.releaseButton(9);
         Joystick.sendState();
         debugPrint("e2 turn R");
@@ -295,7 +305,7 @@ void readEncRotations()
     {
         Joystick.pressButton(10);
         Joystick.sendState();
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(JoystickPressDelayMS));
         Joystick.releaseButton(10);
         Joystick.sendState();
         debugPrint("e2 turn L");
@@ -307,7 +317,7 @@ void readEncRotations()
     {
         Joystick.pressButton(11);
         Joystick.sendState();
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(JoystickPressDelayMS));
         Joystick.releaseButton(11);
         Joystick.sendState();
         debugPrint("e3 turn R");
@@ -317,8 +327,149 @@ void readEncRotations()
     {
         Joystick.pressButton(12);
         Joystick.sendState();
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(JoystickPressDelayMS));
         Joystick.releaseButton(12);
+        Joystick.sendState();
+        debugPrint("e3 turn L");
+        debugPrint(enc_3.counter);
+    }
+}
+
+void readEncKeyboard()
+{
+    // Read enc_0
+
+    if (enc_0.turnH())
+    {
+        led_reg.set(0);
+        led_reg.update();
+        if (enc_0.dir() == 1)
+        {
+            usbKeyboard.press(KEY_LEFT_ALT);
+            usbKeyboard.press(KEY_F14);
+            delay(KeyboardPressDelayMS);
+            usbKeyboard.release(KEY_F14);
+            usbKeyboard.release(KEY_LEFT_ALT);
+            debugPrint("e0 turn R");
+            debugPrint(enc_0.counter);
+        }
+        else if (enc_0.dir() == -1)
+        {
+            usbKeyboard.press(KEY_LEFT_ALT);
+            usbKeyboard.press(KEY_F13);
+            delay(KeyboardPressDelayMS);
+            usbKeyboard.release(KEY_F13);
+            usbKeyboard.release(KEY_LEFT_ALT);
+            debugPrint("e0 turn L");
+            debugPrint(enc_0.counter);
+        }
+    }
+    else
+    {
+        led_reg.clear(0);
+        led_reg.update();
+        if (enc_0.turn())
+        {
+            if (enc_0.dir() == 1)
+            {
+                usbKeyboard.press(KEY_F14);
+                delay(KeyboardPressDelayMS);
+                usbKeyboard.release(KEY_F14);
+                debugPrint("e0 turn R");
+                debugPrint(enc_0.counter);
+            }
+            else if (enc_0.dir() == -1)
+            {
+                usbKeyboard.press(KEY_F13);
+                delay(KeyboardPressDelayMS);
+                usbKeyboard.release(KEY_F13);
+                debugPrint(enc_0.counter);
+            }
+        }
+    }
+
+    // Read enc_1
+    if (enc_1.turnH())
+    {
+        led_reg.set(1);
+        led_reg.update();
+        if (enc_1.dir() == 1)
+        {
+            usbKeyboard.press(KEY_LEFT_ALT);
+            usbKeyboard.press(KEY_F16);
+            delay(KeyboardPressDelayMS);
+            usbKeyboard.release(KEY_F16);
+            usbKeyboard.release(KEY_LEFT_ALT);
+            debugPrint("e1 turnH R");
+            debugPrint(enc_1.counter);
+        }
+        else if (enc_1.dir() == -1)
+        {
+            usbKeyboard.press(KEY_LEFT_ALT);
+            usbKeyboard.press(KEY_F15);
+            delay(KeyboardPressDelayMS);
+            usbKeyboard.release(KEY_F15);
+            usbKeyboard.release(KEY_LEFT_ALT);
+            debugPrint("e1 turnH L");
+            debugPrint(enc_1.counter);
+        }
+    }
+    else
+    {
+        led_reg.clear(1);
+        led_reg.update();
+        if (enc_1.turn())
+        {
+            if (enc_1.dir() == 1)
+            {
+                usbKeyboard.press(KEY_F16);
+                delay(KeyboardPressDelayMS);
+                usbKeyboard.release(KEY_F16);
+                debugPrint("e1 turn R");
+                debugPrint(enc_1.counter);
+            }
+            else if (enc_1.dir() == -1)
+            {
+                usbKeyboard.press(KEY_F15);
+                delay(KeyboardPressDelayMS);
+                usbKeyboard.release(KEY_F15);
+                debugPrint(enc_1.counter);
+            }
+        }
+    }
+
+    // Read enc_2
+    if (enc_2.dir() == 1 && enc_2.turn())
+    {
+        usbKeyboard.press(KEY_F18);
+        delay(KeyboardPressDelayMS);
+        usbKeyboard.release(KEY_F18);
+        debugPrint("e2 turn R");
+        debugPrint(enc_2.counter);
+    }
+    else if (enc_2.dir() == -1 && enc_2.turn())
+    {
+        usbKeyboard.press(KEY_F17);
+        delay(KeyboardPressDelayMS);
+        usbKeyboard.release(KEY_F17);
+        debugPrint("e2 turn L");
+        debugPrint(enc_2.counter);
+    }
+
+    // Read enc_3
+    if (enc_3.dir() == 1 && enc_3.turn())
+    {
+        usbKeyboard.press(KEY_F20);
+        delay(KeyboardPressDelayMS);
+        usbKeyboard.release(KEY_F20);
+        debugPrint("e3 turn R");
+        debugPrint(enc_3.counter);
+    }
+    else if (enc_3.dir() == -1 && enc_3.turn())
+    {
+        usbKeyboard.press(KEY_F19);
+        delay(KeyboardPressDelayMS);
+        usbKeyboard.release(KEY_F19);
         Joystick.sendState();
         debugPrint("e3 turn L");
         debugPrint(enc_3.counter);
@@ -336,11 +487,64 @@ void tickAll()
     enc_3.tick();
 }
 
+void modeCheck()
+{
+    static uint8_t prevousModeSwitchState = -1;
+    if (digitalRead(modeSwitchPin) != prevousModeSwitchState)
+    {
+        if (digitalRead(modeSwitchPin) == 0)
+        {
+            outputMode = KeyboardMode;
+            led_reg.clearAll();
+            led_reg.update();
+            delay(200);
+            led_reg.set(7);
+            led_reg.update();
+            delay(200);
+            led_reg.clearAll();
+            led_reg.update();
+            delay(200);
+            led_reg.set(7);
+            led_reg.update();
+            delay(200);
+            led_reg.clearAll();
+            led_reg.update();
+        }
+        else
+        {
+            outputMode = JoystickMode;
+            led_reg.clearAll();
+            led_reg.update();
+            delay(200);
+            led_reg.set(2);
+            led_reg.update();
+            delay(200);
+            led_reg.clearAll();
+            led_reg.update();
+            delay(200);
+            led_reg.set(2);
+            led_reg.update();
+            delay(200);
+            led_reg.clearAll();
+            led_reg.update();
+        }
+        prevousModeSwitchState = digitalRead(modeSwitchPin);
+    }
+}
+
 void loop()
 {
     tickAll();
+    modeCheck();
+    if (outputMode == JoystickMode)
+    {
+        readEncButtons();
+        readEncRotations();
+    }
+    if (outputMode == KeyboardMode)
+    {
+        readEncKeyboard();
+    }
     readAxies();
     readButtons();
-    readEncButtons();
-    readEncRotations();
 }
