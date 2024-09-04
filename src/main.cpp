@@ -5,7 +5,7 @@
 #include <GyverHC595.h>
 #include <GyverFilters.h>
 #include <USBHIDKeyboard.h>
-// #define debugToSerial true // Send debug into Serial
+#define debugToSerial true // Send debug into Serial
 
 #ifdef debugToSerial
 #define debugPrint(x) Serial.println(x)
@@ -19,7 +19,6 @@
 #define KeyboardMode 0
 #define JoystickMode 1
 uint8_t outputMode = KeyboardMode;
-
 USBHIDKeyboard usbKeyboard;
 // Init
 Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,
@@ -63,7 +62,9 @@ void setup()
     debugPrint("Initialisation Started...");
     // Joystick settings
     Joystick.begin(false);
-    Joystick.setXAxisRange(0, 1200);
+    // analogSetAttenuation(ADC_6db);
+    // analogReadResolution(12);
+    Joystick.setXAxisRange(0,  1200);
     Joystick.setRxAxisRange(0, 1200);
     Joystick.setYAxisRange(0, 1200);
     Joystick.setRyAxisRange(0, 1200);
@@ -112,9 +113,18 @@ void setup()
 }
 int value = 0;
 byte byteToSend = 0;
+GMedian<10,int>f1;
+GMedian<10,int>f2;
+GMedian<10,int>f3;
+GMedian<10,int>f4;
+GMedian<10,int>f5;
+GMedian<10,int>f6;
 
 void readAxies()
 {
+    static RingAverage<int,20> f1;
+    
+
     if (analogRead(R1_PIN) > 250)
     {
         led_reg.set(7);
@@ -163,13 +173,13 @@ void readAxies()
     {
         led_reg.clear(2);
     }
-
-    Joystick.setXAxis(analogRead(R6_PIN) >> 2);
-    Joystick.setRxAxis(analogRead(R5_PIN) >> 2);
-    Joystick.setYAxis(analogRead(R4_PIN) >> 2);
-    Joystick.setRyAxis(analogRead(R3_PIN) >> 2);
-    Joystick.setZAxis(analogRead(R2_PIN) >> 2);
-    Joystick.setRzAxis(analogRead(R1_PIN) >> 2);
+    
+    Joystick.setXAxis(f1.filtered(analogRead(R6_PIN) >> 2));
+    Joystick.setRxAxis(f2.filtered(analogRead(R5_PIN) >> 2));
+    Joystick.setYAxis(f3.filtered(analogRead(R4_PIN) >> 2));
+    Joystick.setRyAxis(f4.filtered(analogRead(R3_PIN) >> 2));
+    Joystick.setZAxis(f5.filtered(analogRead(R2_PIN) >> 2));
+    Joystick.setRzAxis(f6.filtered(analogRead(R1_PIN) >> 2));
     led_reg.update();
     Joystick.sendState();
 }
